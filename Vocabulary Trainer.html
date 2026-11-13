@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Trainer (English & Spanish)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-full flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Toast Notification / Message Box -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-sm font-medium">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-message">Успешно!</span>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- App Logo & Title -->
+        <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-book-bookmark text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-slate-900 tracking-tight leading-none">VocabMaster</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Изучение языков</p>
+                </div>
+            </div>
+
+            <!-- Language Switcher & Controls -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Language Toggle -->
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
+                    <button onclick="setLanguage('en')" id="lang-en-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-indigo-600 shadow-xs">
+                        🇬🇧 Английский
+                    </button>
+                    <button onclick="setLanguage('es')" id="lang-es-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900">
+                        🇪🇸 Испанский
+                    </button>
+                </div>
+
+                <!-- Backup Export / Import -->
+                <div class="flex items-center space-x-1 border-l border-slate-200 pl-2">
+                    <button onclick="exportJSON()" title="Экспорт JSON" class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                        <i class="fa-solid fa-download text-sm"></i>
+                    </button>
+                    <label title="Импорт JSON" class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer">
+                        <i class="fa-solid fa-upload text-sm"></i>
+                        <input type="file" id="import-file" accept=".json" onchange="importJSON(event)" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 pb-28 overflow-y-auto">
+        
+        <!-- SECTION 1: WORDS / ADD -->
+        <section id="section-words" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Словарь <span id="current-lang-title" class="text-indigo-600">Английского</span></h2>
+                    <p class="text-sm text-slate-500">Добавляйте слова, управляйте списком и повторяйте.</p>
+                </div>
+                <button onclick="openAddWordModal()" class="inline-flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-indigo-200 transition-all">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Добавить слово</span>
+                </button>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="word-search" oninput="renderWordsList()" placeholder="Поиск по словам или переводу..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                </div>
+                <select id="level-filter" onchange="renderWordsList()" class="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    <option value="">Все уровни</option>
+                    <option value="A1">A1 (Начальный)</option>
+                    <option value="A2">A2 (Элементарный)</option>
+                    <option value="B1">B1 (Средний)</option>
+                    <option value="B2">B2 (Выше среднего)</option>
+                    <option value="C1">C1 (Продвинутый)</option>
+                    <option value="C2">C2 (В совершенстве)</option>
+                </select>
+            </div>
+
+            <!-- Words Grid / List -->
+            <div id="words-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <!-- Dynamic Word Cards injected here -->
+            </div>
+        </section>
+
+        <!-- SECTION 2: FLASHCARDS (Карточки) -->
+        <section id="section-flashcards" class="hidden space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Интерактивные карточки</h2>
+                <p class="text-sm text-slate-500">Нажмите на карточку, чтобы перевернуть её и проверить себя.</p>
+            </div>
+
+            <div id="flashcards-wrapper" class="flex flex-col items-center justify-center">
+                <!-- Flashcard Container -->
+                <div id="flashcard" onclick="flipCard()" class="w-full max-w-md h-80 cursor-pointer perspective-1000 my-4">
+                    <div id="flashcard-inner" class="w-full h-full relative transform-style-3d transition-transform duration-500 rounded-2xl shadow-xl bg-white border border-slate-200">
+                        <!-- Front Face -->
+                        <div class="absolute inset-0 backface-hidden flex flex-col items-center justify-between p-8 text-center bg-gradient-to-br from-white to-slate-50 rounded-2xl">
+                            <div class="w-full flex justify-between items-center">
+                                <span id="fc-level" class="px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">B1</span>
+                                <span class="text-xs text-slate-400 uppercase tracking-widest font-semibold"><i class="fa-solid fa-rotate mr-1"></i> Нажмите для переворота</span>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 id="fc-word" class="text-3xl font-extrabold text-slate-900 tracking-tight">Word</h3>
+                                <p id="fc-lang" class="text-xs text-slate-500 font-medium">Английский</p>
+                            </div>
+                            <div class="text-xs text-slate-400">Карточка <span id="fc-current">1</span> из <span id="fc-total">10</span></div>
+                        </div>
+                        <!-- Back Face -->
+                        <div class="absolute inset-0 backface-hidden rotate-y-180 flex flex-col items-center justify-between p-8 text-center bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl">
+                            <div class="w-full flex justify-between items-center">
+                                <span id="fc-back-level" class="px-2.5 py-1 text-xs font-bold bg-white/10 text-indigo-200 rounded-full">B1</span>
+                                <span class="text-xs text-indigo-300 uppercase tracking-widest font-semibold">Перевод и описание</span>
+                            </div>
+                            <div class="space-y-3">
+                                <h3 id="fc-translation" class="text-2xl font-bold text-white">Перевод</h3>
+                                <p id="fc-description" class="text-sm text-slate-300 font-normal leading-relaxed">Описание слова...</p>
+                            </div>
+                            <div class="text-xs text-indigo-300/60">Результат запоминания</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flashcard Controls -->
+                <div class="flex items-center justify-center space-x-3 w-full max-w-md mt-2">
+                    <button onclick="rateFlashcard(false)" class="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-xmark text-base"></i>
+                        <span>Не помню</span>
+                    </button>
+                    <button onclick="rateFlashcard(true)" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-check text-base"></i>
+                        <span>Знаю</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: TEST (Тест) -->
+        <section id="section-test" class="hidden space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Проверочный тест</h2>
+                <p class="text-sm text-slate-500">Выберите правильный вариант перевода для каждого слова.</p>
+            </div>
+
+            <div id="test-container" class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6 max-w-xl mx-auto">
+                <!-- Test Active View -->
+                <div id="test-active-view" class="space-y-6">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-medium">
+                        <span>Вопрос <span id="test-current-num">1</span> из <span id="test-total-num">5</span></span>
+                        <span id="test-score-counter" class="bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full font-bold">Правильно: 0</span>
+                    </div>
+
+                    <div class="text-center space-y-2 py-4">
+                        <span id="test-word-level" class="px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">B1</span>
+                        <h3 id="test-target-word" class="text-3xl font-extrabold text-slate-900">Word</h3>
+                        <p id="test-target-desc" class="text-xs text-slate-500 italic">Описание</p>
+                    </div>
+
+                    <div id="test-options" class="grid grid-cols-1 gap-3">
+                        <!-- Options injected here -->
+                    </div>
+                </div>
+
+                <!-- Test Finished View -->
+                <div id="test-finished-view" class="hidden text-center space-y-4 py-8">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h3 class="text-2xl font-bold text-slate-900">Тест завершен!</h3>
+                        <p class="text-sm text-slate-500">Вы успешно справились с проверкой.</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl max-w-xs mx-auto border border-slate-200">
+                        <div class="text-xs text-slate-500">Ваш результат</div>
+                        <div id="test-final-score" class="text-3xl font-extrabold text-indigo-600 mt-1">4 / 5 (80%)</div>
+                    </div>
+                    <button onclick="startTest()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-indigo-200">
+                        Пройти снова
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: INPUT WORD (Ввод слова) -->
+        <section id="section-input" class="hidden space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Тренажер ввода</h2>
+                <p class="text-sm text-slate-500">Введите точное слово на изучаемом языке по его переводу.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6 max-w-xl mx-auto">
+                <div id="input-active-view" class="space-y-6">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-medium">
+                        <span>Задание <span id="input-current-num">1</span></span>
+                        <span id="input-lang-badge" class="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full font-bold">Английский</span>
+                    </div>
+
+                    <div class="text-center space-y-3 py-4 bg-slate-50 rounded-xl border border-slate-100 p-6">
+                        <span id="input-word-level" class="px-2.5 py-1 text-xs font-bold bg-white text-indigo-600 rounded-full border border-slate-200 shadow-xs">B1</span>
+                        <h3 id="input-translation-prompt" class="text-2xl font-bold text-slate-900">Перевод слова</h3>
+                        <p id="input-description-prompt" class="text-xs text-slate-500">Описание...</p>
+                    </div>
+
+                    <form onsubmit="checkInputWord(event)" class="space-y-4">
+                        <div>
+                            <input type="text" id="user-word-input" autocomplete="off" placeholder="Введите слово здесь..." class="w-full text-center px-4 py-3 bg-white border border-slate-200 rounded-xl text-base font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-indigo-200">
+                            Проверить
+                        </button>
+                    </form>
+
+                    <div id="input-feedback" class="hidden p-4 rounded-xl text-center text-sm font-medium">
+                        <!-- Feedback message -->
+                    </div>
+                </div>
+
+                <div id="input-finished-view" class="hidden text-center space-y-4 py-8">
+                    <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+                        <i class="fa-solid fa-keyboard"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h3 class="text-2xl font-bold text-slate-900">Все слова пройдены!</h3>
+                        <p class="text-sm text-slate-500">Отличная тренировка правописания.</p>
+                    </div>
+                    <button onclick="startInputMode()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-indigo-200">
+                        Начать заново
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: STATISTICS (Статистика) -->
+        <section id="section-stats" class="hidden space-y-6">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Статистика прогресса</h2>
+                <p class="text-sm text-slate-500">Ваши успехи в изучении словаря.</p>
+            </div>
+
+            <!-- Overview Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-book"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">Всего слов</div>
+                        <div id="stat-total-words" class="text-2xl font-extrabold text-slate-900 mt-0.5">0</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">Процент успеха</div>
+                        <div id="stat-success-rate" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0%</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-earth-americas"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">Язык</div>
+                        <div id="stat-active-lang" class="text-lg font-bold text-slate-900 mt-0.5">Английский</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Breakdown by Levels -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <h3 class="text-base font-bold text-slate-900">Слова по уровням CEFR</h3>
+                <div id="stat-levels-breakdown" class="space-y-3">
+                    <!-- Progress bars injected here -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 z-30 shadow-lg">
+        <div class="max-w-4xl mx-auto px-2 py-2 flex items-center justify-around">
+            <button onclick="switchTab('words')" id="nav-btn-words" class="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-indigo-600 transition-all">
+                <i class="fa-solid fa-list text-lg"></i>
+                <span class="text-[11px] font-semibold mt-1">Слова</span>
+            </button>
+            <button onclick="switchTab('flashcards')" id="nav-btn-flashcards" class="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
+                <i class="fa-solid fa-clone text-lg"></i>
+                <span class="text-[11px] font-semibold mt-1">Карточки</span>
+            </button>
+            <button onclick="switchTab('test')" id="nav-btn-test" class="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
+                <i class="fa-solid fa-square-check text-lg"></i>
+                <span class="text-[11px] font-semibold mt-1">Тест</span>
+            </button>
+            <button onclick="switchTab('input')" id="nav-btn-input" class="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
+                <i class="fa-solid fa-keyboard text-lg"></i>
+                <span class="text-[11px] font-semibold mt-1">Ввод</span>
+            </button>
+            <button onclick="switchTab('stats')" id="nav-btn-stats" class="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[11px] font-semibold mt-1">Статистика</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Add Word Modal -->
+    <div id="add-word-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900">Новое слово</h3>
+                <button onclick="closeAddWordModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleAddWordSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Слово (<span id="modal-lang-label">Английский</span>)</label>
+                    <input type="text" id="new-word" required placeholder="например: Serendipity" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Перевод (на русском)</label>
+                    <input type="text" id="new-translation" required placeholder="например: Счастливая случайность" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Описание / Определение</label>
+                    <textarea id="new-description" rows="2" required placeholder="Краткое пояснение или контекст..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Уровень CEFR</label>
+                    <select id="new-level" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500">
+                        <option value="A1">A1 - Начальный</option>
+                        <option value="A2">A2 - Элементарный</option>
+                        <option value="B1">B1 - Средний</option>
+                        <option value="B2">B2 - Выше среднего</option>
+                        <option value="C1">C1 - Продвинутый</option>
+                        <option value="C2">C2 - В совершенстве</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-3 pt-2">
+                    <button type="button" onclick="closeAddWordModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                        Отмена
+                    </button>
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-all shadow-md shadow-indigo-200">
+                        Добавить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initial Default Dataset mimicking data.json
+        const defaultData = [
+            // English
+            { id: 1, lang: 'en', word: 'Serendipity', translation: 'Счастливая случайность', description: 'Finding valuable things by chance.', level: 'B2', correct: 3, total: 4 },
+            { id: 2, lang: 'en', word: 'Resilient', translation: 'Устойчивый, жизнестойкий', description: 'Able to withstand or recover quickly from difficult conditions.', level: 'C1', correct: 5, total: 5 },
+            { id: 3, lang: 'en', word: 'Curious', translation: 'Любопытный', description: 'Eager to know or learn something.', level: 'A2', correct: 2, total: 3 },
+            { id: 4, lang: 'en', word: 'Challenge', translation: 'Вызов, сложная задача', description: 'A task or situation that tests someone\'s abilities.', level: 'B1', correct: 4, total: 4 },
+            { id: 5, lang: 'en', word: 'Eloquent', translation: 'Красноречивый', description: 'Fluent or persuasive in speaking or writing.', level: 'C2', correct: 1, total: 2 },
+            // Spanish
+            { id: 6, lang: 'es', word: 'Ojalá', translation: 'Дай бог, надеяться', description: 'Expressing a strong wish or hope.', level: 'B1', correct: 3, total: 3 },
+            { id: 7, lang: 'es', word: 'Impresionante', translation: 'Впечатляющий', description: 'Causing admiration or awe.', level: 'A2', correct: 4, total: 5 },
+            { id: 8, lang: 'es', word: 'Madrugar', translation: 'Вставать рано утром', description: 'To get up early in the morning.', level: 'B2', correct: 2, total: 4 },
+            { id: 9, lang: 'es', word: 'Añorar', translation: 'Тосковать, скучать', description: 'To feel nostalgia or longing for someone or something.', level: 'C1', correct: 1, total: 2 }
+        ];
+
+        // State variables
+        let currentLang = 'en';
+        let activeTab = 'words';
+        let words = [];
+
+        // Flashcards state
+        let flashcardQueue = [];
+        let flashcardIndex = 0;
+        let isFlipped = false;
+
+        // Test state
+        let testQuestions = [];
+        let testIndex = 0;
+        let testScoreCount = 0;
+
+        // Input state
+        let inputQueue = [];
+        let inputIndex = 0;
+
+        // Initialize App on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDataFromStorage();
+            renderCurrentView();
+        });
+
+        // Load data from localStorage or fallback to defaultData
+        function loadDataFromStorage() {
+            const saved = localStorage.getItem('vocab_master_data');
+            if (saved) {
+                try {
+                    words = JSON.parse(saved);
+                } catch (e) {
+                    words = [...defaultData];
+                }
+            } else {
+                words = [...defaultData];
+                saveDataToStorage();
+            }
+        }
+
+        // Save data to localStorage
+        function saveDataToStorage() {
+            localStorage.setItem('vocab_master_data', JSON.stringify(words));
+        }
+
+        // Toast notification helper
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toast-message');
+            const icon = document.getElementById('toast-icon');
+            
+            msg.textContent = message;
+            if (isError) {
+                icon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
+            } else {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-[-150%]');
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-150%]');
+            }, 3000);
+        }
+
+        // Set Language (en / es)
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('lang-en-btn').className = lang === 'en' 
+                ? 'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-indigo-600 shadow-xs'
+                : 'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900';
+            document.getElementById('lang-es-btn').className = lang === 'es' 
+                ? 'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-indigo-600 shadow-xs'
+                : 'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900';
+            
+            document.getElementById('current-lang-title').textContent = lang === 'en' ? 'Английского' : 'Испанского';
+            renderCurrentView();
+        }
+
+        // Switch Tabs
+        function switchTab(tab) {
+            activeTab = tab;
+            const tabs = ['words', 'flashcards', 'test', 'input', 'stats'];
+            tabs.forEach(t => {
+                const section = document.getElementById(`section-${t}`);
+                const btn = document.getElementById(`nav-btn-${t}`);
+                if (t === tab) {
+                    section.classList.remove('hidden');
+                    btn.className = 'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-indigo-600 transition-all font-bold';
+                } else {
+                    section.classList.add('hidden');
+                    btn.className = 'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-600 transition-all';
+                }
+            });
+            renderCurrentView();
+        }
+
+        function renderCurrentView() {
+            if (activeTab === 'words') renderWordsList();
+            else if (activeTab === 'flashcards') initFlashcards();
+            else if (activeTab === 'test') startTest();
+            else if (activeTab === 'input') startInputMode();
+            else if (activeTab === 'stats') renderStats();
+        }
+
+        // --- SECTION 1: WORDS LIST ---
+        function renderWordsList() {
+            const container = document.getElementById('words-container');
+            const search = document.getElementById('word-search').value.toLowerCase();
+            const levelFilter = document.getElementById('level-filter').value;
+
+            const filtered = words.filter(w => {
+                if (w.lang !== currentLang) return false;
+                if (levelFilter && w.level !== levelFilter) return false;
+                if (search && !w.word.toLowerCase().includes(search) && !w.translation.toLowerCase().includes(search)) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-12 text-center space-y-3">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-lg">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <p class="text-sm text-slate-500 font-medium">Слов не найдено. Добавьте первое слово!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(w => `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-3 hover:border-indigo-200 transition-all">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 text-[11px] font-bold bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100">${w.level}</span>
+                                <h3 class="text-base font-bold text-slate-900">${w.word}</h3>
+                            </div>
+                            <p class="text-sm font-semibold text-indigo-900 mt-1">${w.translation}</p>
+                        </div>
+                        <button onclick="deleteWord(${w.id})" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors" title="Удалить">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-relaxed">${w.description}</p>
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-400">
+                        <span>Успех: ${w.total > 0 ? Math.round((w.correct / w.total) * 100) : 0}%</span>
+                        <span>Попыток: ${w.total}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Add Word Modal Handlers
+        function openAddWordModal() {
+            document.getElementById('modal-lang-label').textContent = currentLang === 'en' ? 'Английский' : 'Испанский';
+            document.getElementById('add-word-modal').classList.remove('hidden');
+        }
+
+        function closeAddWordModal() {
+            document.getElementById('add-word-modal').classList.add('hidden');
+            document.getElementById('new-word').value = '';
+            document.getElementById('new-translation').value = '';
+            document.getElementById('new-description').value = '';
+        }
+
+        function handleAddWordSubmit(event) {
+            event.preventDefault();
+            const newWordObj = {
+                id: Date.now(),
+                lang: currentLang,
+                word: document.getElementById('new-word').value.trim(),
+                translation: document.getElementById('new-translation').value.trim(),
+                description: document.getElementById('new-description').value.trim(),
+                level: document.getElementById('new-level').value,
+                correct: 0,
+                total: 0
+            };
+
+            words.push(newWordObj);
+            saveDataToStorage();
+            closeAddWordModal();
+            renderWordsList();
+            showToast('Слово успешно добавлено!');
+        }
+
+        function deleteWord(id) {
+            words = words.filter(w => w.id !== id);
+            saveDataToStorage();
+            renderWordsList();
+            showToast('Слово удалено');
+        }
+
+        // --- SECTION 2: FLASHCARDS ---
+        function initFlashcards() {
+            flashcardQueue = words.filter(w => w.lang === currentLang);
+            flashcardIndex = 0;
+            isFlipped = false;
+            showFlashcard();
+        }
+
+        function showFlashcard() {
+            if (flashcardQueue.length === 0) {
+                document.getElementById('flashcards-wrapper').innerHTML = `
+                    <div class="py-16 text-center space-y-3">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-lg">
+                            <i class="fa-solid fa-clone"></i>
+                        </div>
+                        <p class="text-sm text-slate-500 font-medium">Нет слов для карточек в этом языке. Добавьте их в разделе "Слова".</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (flashcardIndex >= flashcardQueue.length) {
+                flashcardIndex = 0;
+            }
+
+            const w = flashcardQueue[flashcardIndex];
+            document.getElementById('fc-level').textContent = w.level;
+            document.getElementById('fc-back-level').textContent = w.level;
+            document.getElementById('fc-word').textContent = w.word;
+            document.getElementById('fc-lang').textContent = currentLang === 'en' ? 'Английский' : 'Испанский';
+            document.getElementById('fc-translation').textContent = w.translation;
+            document.getElementById('fc-description').textContent = w.description;
+            document.getElementById('fc-current').textContent = flashcardIndex + 1;
+            document.getElementById('fc-total').textContent = flashcardQueue.length;
+
+            if (isFlipped) {
+                flipCard(true); // reset flip state
+            }
+        }
+
+        function flipCard(forceReset = false) {
+            const inner = document.getElementById('flashcard-inner');
+            if (forceReset) {
+                isFlipped = false;
+                inner.classList.remove('rotate-y-180');
+                return;
+            }
+            isFlipped = !isFlipped;
+            if (isFlipped) {
+                inner.classList.add('rotate-y-180');
+            } else {
+                inner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function rateFlashcard(known) {
+            const w = flashcardQueue[flashcardIndex];
+            const wordRef = words.find(item => item.id === w.id);
+            if (wordRef) {
+                wordRef.total += 1;
+                if (known) wordRef.correct += 1;
+                saveDataToStorage();
+            }
+            flashcardIndex++;
+            showFlashcard();
+        }
+
+        // --- SECTION 3: TEST ---
+        function startTest() {
+            const langWords = words.filter(w => w.lang === currentLang);
+            if (langWords.length < 2) {
+                document.getElementById('test-container').innerHTML = `
+                    <div class="py-12 text-center space-y-3">
+                        <p class="text-sm text-slate-500 font-medium">Для теста нужно хотя бы 2 слова в словаре текущего языка.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            testQuestions = [...langWords].sort(() => 0.5 - Math.random()).slice(0, 5);
+            testIndex = 0;
+            testScoreCount = 0;
+            
+            document.getElementById('test-active-view').classList.remove('hidden');
+            document.getElementById('test-finished-view').classList.add('hidden');
+            document.getElementById('test-total-num').textContent = testQuestions.length;
+            renderTestQuestion();
+        }
+
+        function renderTestQuestion() {
+            if (testIndex >= testQuestions.length) {
+                document.getElementById('test-active-view').classList.add('hidden');
+                document.getElementById('test-finished-view').classList.remove('hidden');
+                const percent = Math.round((testScoreCount / testQuestions.length) * 100);
+                document.getElementById('test-final-score').textContent = `${testScoreCount} / ${testQuestions.length} (${percent}%)`;
+                return;
+            }
+
+            const currentQ = testQuestions[testIndex];
+            document.getElementById('test-current-num').textContent = testIndex + 1;
+            document.getElementById('test-score-counter').textContent = `Правильно: ${testScoreCount}`;
+            document.getElementById('test-word-level').textContent = currentQ.level;
+            document.getElementById('test-target-word').textContent = currentQ.word;
+            document.getElementById('test-target-desc').textContent = currentQ.description;
+
+            // Generate options (1 correct, up to 3 distractors)
+            const distractors = words.filter(w => w.lang === currentLang && w.id !== currentQ.id)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 3);
+            
+            const options = [...distractors, currentQ].sort(() => 0.5 - Math.random());
+
+            const optContainer = document.getElementById('test-options');
+            optContainer.innerHTML = options.map(opt => `
+                <button onclick="handleTestAnswer(${opt.id}, ${currentQ.id}, this)" class="w-full text-left px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-all flex items-center justify-between">
+                    <span>${opt.translation}</span>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                </button>
+            `).join('');
+        }
+
+        function handleTestAnswer(selectedId, correctId, btnElement) {
+            const allBtns = document.querySelectorAll('#test-options button');
+            allBtns.forEach(b => b.disabled = true);
+
+            const wordRef = words.find(w => w.id === correctId);
+            if (wordRef) {
+                wordRef.total += 1;
+            }
+
+            if (selectedId === correctId) {
+                testScoreCount++;
+                btnElement.className = 'w-full text-left px-4 py-3 bg-emerald-50 border border-emerald-300 rounded-xl text-sm font-semibold text-emerald-700 flex items-center justify-between';
+                if (wordRef) wordRef.correct += 1;
+            } else {
+                btnElement.className = 'w-full text-left px-4 py-3 bg-rose-50 border border-rose-300 rounded-xl text-sm font-semibold text-rose-700 flex items-center justify-between';
+                // highlight correct
+                allBtns.forEach(b => {
+                    if (b.textContent.trim().includes(words.find(w => w.id === correctId).translation)) {
+                        b.className = 'w-full text-left px-4 py-3 bg-emerald-50 border border-emerald-300 rounded-xl text-sm font-semibold text-emerald-700 flex items-center justify-between';
+                    }
+                });
+            }
+
+            saveDataToStorage();
+
+            setTimeout(() => {
+                testIndex++;
+                renderTestQuestion();
+            }, 1200);
+        }
+
+        // --- SECTION 4: INPUT WORD MODE ---
+        function startInputMode() {
+            inputQueue = words.filter(w => w.lang === currentLang);
+            inputIndex = 0;
+            
+            if (inputQueue.length === 0) {
+                document.getElementById('input-active-view').innerHTML = `
+                    <div class="py-12 text-center space-y-3">
+                        <p class="text-sm text-slate-500 font-medium">Нет слов для тренировки ввода в этом языке.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('input-active-view').classList.remove('hidden');
+            document.getElementById('input-finished-view').classList.add('hidden');
+            renderInputQuestion();
+        }
+
+        function renderInputQuestion() {
+            if (inputIndex >= inputQueue.length) {
+                document.getElementById('input-active-view').classList.add('hidden');
+                document.getElementById('input-finished-view').classList.remove('hidden');
+                return;
+            }
+
+            const w = inputQueue[inputIndex];
+            document.getElementById('input-current-num').textContent = `${inputIndex + 1} / ${inputQueue.length}`;
+            document.getElementById('input-lang-badge').textContent = currentLang === 'en' ? 'Английский' : 'Испанский';
+            document.getElementById('input-word-level').textContent = w.level;
+            document.getElementById('input-translation-prompt').textContent = w.translation;
+            document.getElementById('input-description-prompt').textContent = w.description;
+            document.getElementById('user-word-input').value = '';
+            document.getElementById('input-feedback').classList.add('hidden');
+            document.getElementById('user-word-input').disabled = false;
+            document.getElementById('user-word-input').focus();
+        }
+
+        function checkInputWord(event) {
+            event.preventDefault();
+            const userVal = document.getElementById('user-word-input').value.trim().toLowerCase();
+            const currentW = inputQueue[inputIndex];
+            const wordRef = words.find(w => w.id === currentW.id);
+
+            if (wordRef) {
+                wordRef.total += 1;
+            }
+
+            const feedback = document.getElementById('input-feedback');
+            feedback.classList.remove('hidden');
+            document.getElementById('user-word-input').disabled = true;
+
+            if (userVal === currentW.word.toLowerCase()) {
+                if (wordRef) wordRef.correct += 1;
+                feedback.className = 'p-4 rounded-xl text-center text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check mr-1.5"></i> Верно! Точное совпадение.`;
+            } else {
+                feedback.className = 'p-4 rounded-xl text-center text-sm font-medium bg-rose-50 text-rose-700 border border-rose-200';
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1.5"></i> Ошибка. Правильный ответ: <b>${currentW.word}</b>`;
+            }
+
+            saveDataToStorage();
+
+            setTimeout(() => {
+                inputIndex++;
+                renderInputQuestion();
+            }, 1800);
+        }
+
+        // --- SECTION 5: STATISTICS ---
+        function renderStats() {
+            const langWords = words.filter(w => w.lang === currentLang);
+            const totalWords = langWords.length;
+            
+            let totalCorrect = 0;
+            let totalAttempts = 0;
+            langWords.forEach(w => {
+                totalCorrect += w.correct;
+                totalAttempts += w.total;
+            });
+
+            const successRate = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+
+            document.getElementById('stat-total-words').textContent = totalWords;
+            document.getElementById('stat-success-rate').textContent = `${successRate}%`;
+            document.getElementById('stat-active-lang').textContent = currentLang === 'en' ? 'Английский' : 'Испанский';
+
+            // Levels breakdown
+            const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+            const levelNames = {
+                'A1': 'A1 (Начальный)',
+                'A2': 'A2 (Элементарный)',
+                'B1': 'B1 (Средний)',
+                'B2': 'B2 (Выше среднего)',
+                'C1': 'C1 (Продвинутый)',
+                'C2': 'C2 (В совершенстве)'
+            };
+
+            const breakdownContainer = document.getElementById('stat-levels-breakdown');
+            breakdownContainer.innerHTML = levels.map(lvl => {
+                const count = langWords.filter(w => w.level === lvl).length;
+                const percent = totalWords > 0 ? Math.round((count / totalWords) * 100) : 0;
+                return `
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span class="text-slate-700">${levelNames[lvl]}</span>
+                            <span class="text-slate-500">${count} слов (${percent}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-indigo-600 h-full rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- EXPORT & IMPORT JSON ---
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(words, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `vocab_master_backup_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('Резервная копия экспортирована!');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed)) {
+                        words = parsed;
+                        saveDataToStorage();
+                        renderCurrentView();
+                        showToast('База слов успешно импортирована!');
+                    } else {
+                        showToast('Неверный формат JSON файла', true);
+                    }
+                } catch (err) {
+                    showToast('Ошибка чтения JSON файла', true);
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
